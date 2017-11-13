@@ -18,6 +18,7 @@
  * License along with FFmpeg; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
+#include "miharu.h"
 
 #include <string.h>
 #include <stdint.h>
@@ -134,6 +135,8 @@ void register_exit(void (*cb)(int ret))
 
 void exit_program(int ret)
 {
+    u_exit_program(ret);
+
     if (program_exit)
         program_exit(ret);
 

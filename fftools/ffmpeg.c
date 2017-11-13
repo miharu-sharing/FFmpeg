@@ -4766,8 +4766,8 @@ static void log_callback_null(void *ptr, int level, const char *fmt, va_list vl)
  *
  *
 **/
-extern char *G_argv[64];    //UCL
-extern int G_argc;          //UCL
+char *G_argv[64];   // extern char *G_argv[64];    //UCL
+int G_argc;         // extern int G_argc;          //UCL
 char G_cmdline[256];        //UCL
 
 int u_recv_udp(char *cmdline);                      //UCL UDP受信
@@ -4782,27 +4782,27 @@ void u_term_sock();         //UDP終結
 
 int main(int argc, char **argv)
 {
-  int ret;
-  int64_t ti;
+    int ret;
+    int64_t ti;
 
-  av_log_set_level(AV_LOG_DEBUG);
+    av_log_set_level(AV_LOG_DEBUG);
 
-  // Winsock 開始
-  u_init_sock();
-  u_send_udp("127.0.0.1","IN");       //INIT
+    // Winsock 開始
+    u_init_sock();
+    u_send_udp("127.0.0.1","IN");       //INIT
 
 LOOP:
-printf("Main:recv\n");
-ret = u_recv_udp(G_cmdline);                             // UDP受信
-printf("Recv:<ret=%d %s>\n",ret,G_cmdline);
-if (ret < 1) {
-  goto LOOP;
+  printf("Main:recv\n");
+  ret = u_recv_udp(G_cmdline);                             // UDP受信
+  printf("Recv:<ret=%d %s>\n",ret,G_cmdline);
+  if (ret < 1) {
+    goto LOOP;
+    }
+    u_term_sock();
+  if (!memcmp(G_cmdline,"EXIT",4)) {
+    goto EXIT;
   }
-  u_term_sock();
-if (!memcmp(G_cmdline,"EXIT",4)) {
-  goto EXIT;
-}
-u_parse_cmdline(G_cmdline,&G_argc,&G_argv);
+  u_parse_cmdline(G_cmdline,&G_argc,&G_argv);
   printf("(100)main:nb_filtergraphs=%d\n",nb_filtergraphs);
 
   register_exit(ffmpeg_cleanup);
@@ -5111,8 +5111,10 @@ void u_exit_program(int ret)
     u_send_udp("127.0.0.1","ER");           //OK 送信
     u_term_sock();
 
+#if 0
     if (program_exit)
         program_exit(ret);
 
     exit(ret);
+#endif
 }
