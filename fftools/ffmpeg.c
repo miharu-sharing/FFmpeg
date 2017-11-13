@@ -4759,76 +4759,360 @@ static void log_callback_null(void *ptr, int level, const char *fmt, va_list vl)
 {
 }
 
+
+/*
+ * Fixed code for Miharu
+ *
+ *
+ *
+**/
+extern char *G_argv[64];    //UCL
+extern int G_argc;          //UCL
+char G_cmdline[256];        //UCL
+
+int u_recv_udp(char *cmdline);                      //UCL UDP受信
+int u_send_udp(char *destination, char *line);      //UCL UDP送信
+int u_parse_cmdline(char *cmdline,int *argc,char *argv[]);  //UCL引数分解
+void u_var_init();          //変数初期化
+void u_init_sock();         //UDP初期化
+void u_term_sock();         //UDP終結
+
+
+
+
 int main(int argc, char **argv)
 {
-    int i, ret;
-    int64_t ti;
+  int ret;
+  int64_t ti;
 
-    init_dynload();
+  av_log_set_level(AV_LOG_DEBUG);
 
-    register_exit(ffmpeg_cleanup);
+  // Winsock 開始
+  u_init_sock();
+  u_send_udp("127.0.0.1","IN");       //INIT
 
-    setvbuf(stderr,NULL,_IONBF,0); /* win32 runtime needs this */
+LOOP:
+printf("Main:recv\n");
+ret = u_recv_udp(G_cmdline);                             // UDP受信
+printf("Recv:<ret=%d %s>\n",ret,G_cmdline);
+if (ret < 1) {
+  goto LOOP;
+  }
+  u_term_sock();
+if (!memcmp(G_cmdline,"EXIT",4)) {
+  goto EXIT;
+}
+u_parse_cmdline(G_cmdline,&G_argc,&G_argv);
+  printf("(100)main:nb_filtergraphs=%d\n",nb_filtergraphs);
 
-    av_log_set_flags(AV_LOG_SKIP_REPEATED);
-    parse_loglevel(argc, argv, options);
+  register_exit(ffmpeg_cleanup);
 
-    if(argc>1 && !strcmp(argv[1], "-d")){
-        run_as_daemon=1;
-        av_log_set_callback(log_callback_null);
-        argc--;
-        argv++;
-    }
+  setvbuf(stderr,NULL,_IONBF,0); /* win32 runtime needs this */
 
-    avcodec_register_all();
+  av_log_set_flags(AV_LOG_SKIP_REPEATED);
+  parse_loglevel(argc, argv, options);
+  printf("(200)main:nb_filtergraphs=%d\n",nb_filtergraphs);
+
+  if(argc>1 && !strcmp(argv[1], "-d")){
+      run_as_daemon=1;
+      av_log_set_callback(log_callback_null);
+      argc--;
+      argv++;
+  }
+
+  avcodec_register_all();
 #if CONFIG_AVDEVICE
-    avdevice_register_all();
+  avdevice_register_all();
 #endif
-    avfilter_register_all();
-    av_register_all();
-    avformat_network_init();
+  avfilter_register_all();
+  av_register_all();
+  avformat_network_init();
 
-    show_banner(argc, argv, options);
+  show_banner(argc, argv, options);
+  printf("(300)main:nb_filtergraphs=%d\n",nb_filtergraphs);
 
-    /* parse options and open all input/output files */
-    ret = ffmpeg_parse_options(argc, argv);
-    if (ret < 0)
-        exit_program(1);
+  u_var_init();       //変数初期化
 
-    if (nb_output_files <= 0 && nb_input_files == 0) {
-        show_usage();
-        av_log(NULL, AV_LOG_WARNING, "Use -h to get full help or, even better, run 'man %s'\n", program_name);
-        exit_program(1);
+  term_init();        //変数終結
+
+  /* parse options and open all input/output files */
+  ret = ffmpeg_parse_options(argc, argv);
+  printf("(310)main:ret=%d in=%d out=%d\n",ret,nb_input_files,nb_output_files);
+  if (ret < 0)
+      exit_program(1);
+
+  if (nb_output_files <= 0 && nb_input_files == 0) {
+      show_usage();
+      av_log(NULL, AV_LOG_WARNING, "Use -h to get full help or, even better, run 'man %s'\n", program_name);
+      exit_program(1);
+  }
+
+  /* file converter / grab */
+  if (nb_output_files <= 0) {
+      av_log(NULL, AV_LOG_FATAL, "At least one output file must be specified\n");
+      exit_program(1);
+  }
+
+#if 0
+   if (nb_input_files == 0) {
+       av_log(NULL, AV_LOG_FATAL, "At least one input file must be specified\n");
+       exit_program(1);
+   }
+#endif
+  printf("(400)main:nb_filtergraphs=%d\n",nb_filtergraphs);
+  current_time = ti = getutime();
+  if (transcode() < 0)
+      exit_program(1);
+  ti = getutime() - ti;
+  if (do_benchmark) {
+      printf("bench: utime=%0.3fs\n", ti / 1000000.0);
+  }
+  printf("(500)main:nb_filtergraphs=%d\n",nb_filtergraphs);
+  av_log(NULL, AV_LOG_DEBUG, "%"PRIu64" frames successfully decoded, %"PRIu64" decoding errors\n",
+         decode_error_stat[0], decode_error_stat[1]);
+  if ((decode_error_stat[0] + decode_error_stat[1]) * max_error_rate < decode_error_stat[1])
+      exit_program(69);
+  printf("-exit\n");
+//    exit_program(received_nb_signals ? 255 : main_return_code);   //UCL
+  ffmpeg_cleanup(0);
+  printf("+exit\n");
+//exit(0);              //UCL
+  printf("(600)main:nb_filtergraphs=%d\n",nb_filtergraphs);
+
+  u_init_sock();
+  u_send_udp("127.0.0.1","OK");           //OK 送信
+
+  goto LOOP;
+
+EXIT:
+  // Winsock 終了
+  u_term_sock();
+  return main_return_code;
+}
+
+
+
+// UDP サーバ側
+// ws2_32.lib
+#include <stdio.h>
+#include <winsock2.h>
+#include <ws2tcpip.h>
+
+#define BUFFER_SIZE 256
+
+int recvSocket = 0;
+int destSocket = 0;
+
+/*********************************************************************
+ * NAME         : u_recv_udp
+ * FUNCTION     : UDP 受信
+ * PROCESS      : 監視メインからUDPコマンドを受信する。
+ * OUTPUT       : cmdline               : コマンド
+ * RETURN       : 復帰情報  : 受信バイト数
+ ********************************************************************/
+int u_recv_udp(char *cmdline) {
+  /* ポート番号、ソケット */
+  unsigned short port = 8421;
+//  int recvSocket;
+    int l;
+
+  /* sockaddr_in 構造体 */
+  struct sockaddr_in recvSockAddr;
+
+  /* 各種パラメータ */
+  int status;
+  int numrcv;
+  char buffer[BUFFER_SIZE];
+  unsigned long on = 1;
+
+  /* パケット受信 */
+
+    numrcv = recvfrom(recvSocket, buffer, BUFFER_SIZE, 0, NULL, NULL);
+    printf("recvdrom: numrcv=%d err=%d\n",numrcv,WSAGetLastError());
+    if(numrcv == -1) {
+        u_term_sock();
+        exit(-1);
     }
 
-    /* file converter / grab */
-    if (nb_output_files <= 0) {
-        av_log(NULL, AV_LOG_FATAL, "At least one output file must be specified\n");
-        exit_program(1);
+    buffer[numrcv] = '\0';
+    printf("received: %s\n", buffer);
+	strcpy(cmdline,buffer);
+
+	return(strlen(cmdline));
+}
+
+/*********************************************************************
+ * NAME         : u_parse_cmdline
+ * FUNCTION     : コマンド分解
+ * PROCESS      : コマンドを変数に分解する。
+ * INPUT        : cmdline               : コマンド
+ * OUTPUT       : argc                  : 変数個数
+ * OUTPUT       : argv                  : 変数ポインタ配列
+ * RETURN       : 復帰情報              : 変数個数
+ ********************************************************************/
+int u_parse_cmdline(char *cmdline,int *argc,char *argv[]) {
+	int i,j;
+	char *p,*q;
+	int n;
+
+	n = 0;
+	p = cmdline;
+	strcat(cmdline," ");
+	while(q = strchr(p,' ')) {
+		*q = '\0';
+		argv[n] = p;
+		n++;
+		q++;
+		while(*q == ' ') {
+			q++;
+		}
+		p = q;
+	}
+	*argc = n;
+
+	return(n);
+}
+
+/*********************************************************************
+ * NAME         : u_var_init
+ * FUNCTION     : 変数初期化
+ * PROCESS      : FFMPEGの内部変数を初期化する。
+ ********************************************************************/
+void u_var_init() {
+
+	run_as_daemon  = 0;
+	nb_frames_dup = 0;
+	nb_frames_drop = 0;
+
+	progress_avio = (void *)NULL;
+
+	input_streams = (void *)NULL;
+	nb_input_streams = 0;
+	input_files   = (void *)NULL;
+	nb_input_files   = 0;
+
+	output_streams = (void *)NULL;
+	nb_output_streams = 0;
+	output_files   = (void *)NULL;
+	nb_output_files   = 0;
+
+	filtergraphs = (void *)NULL;
+	nb_filtergraphs = 0;
+}
+
+/*********************************************************************
+ * NAME         : u_send_udp
+ * FUNCTION     : レスポンス送信
+ * PROCESS      : 監視メインにレスポンスを送信する。
+ * INPUT        : destinationts_type    : IPアドレス
+ * INPUT        : line                  : レスポンス
+ * RETURN       : 復帰情報  : 送信バイト数
+ ********************************************************************/
+int u_send_udp(char *destination, char *line) {
+  /* IPアドレス、ポート番号、ソケット */
+  unsigned short port = 8422;
+
+  /* sockaddr_in 構造体 */
+  struct sockaddr_in destSockAddr;
+
+  /* 各種パラメータ */
+  int i,ret;
+
+  /* sockaddr_in 構造体のセット */
+  memset(&destSockAddr, 0, sizeof(destSockAddr));
+  destSockAddr.sin_addr.s_addr = inet_addr(destination);
+  destSockAddr.sin_port = htons(port);
+  destSockAddr.sin_family = AF_INET;
+
+  /* パケット送出 */
+
+    ret = sendto(destSocket, line, strlen(line), 0,
+        (const struct sockaddr *)&destSockAddr, sizeof(destSockAddr));
+    printf("Send:<%s> ret=%d err=%d\n",line,ret,WSAGetLastError());
+
+	return(strlen(line));
+}
+
+/*********************************************************************
+ * NAME         : u_init_sock
+ * FUNCTION     : UDP Socket 初期化
+ * PROCESS      : UDP Socket を初期化する。
+ ********************************************************************/
+void u_init_sock()
+{
+    /* ポート番号、ソケット */
+  unsigned short port = 8421;
+
+  /* sockaddr_in 構造体 */
+  struct sockaddr_in recvSockAddr;
+
+  /* sockaddr_in 構造体 */
+  struct sockaddr_in destSockAddr;
+
+  /* 各種パラメータ */
+  int status;
+  WSADATA data;
+
+  if (destSocket) {
+      closesocket(destSocket);
+  }
+  if (recvSocket) {
+      closesocket(recvSocket);
+  }
+  WSACleanup();
+
+  WSAStartup(MAKEWORD(2,0), &data);
+
+  /* sockaddr_in 構造体のセット */
+  memset(&recvSockAddr, 0, sizeof(recvSockAddr));
+  recvSockAddr.sin_port = htons(port);
+  recvSockAddr.sin_family = AF_INET;
+  recvSockAddr.sin_addr.s_addr = htonl(INADDR_ANY);
+
+  /* ソケット生成 */
+  recvSocket = socket(AF_INET, SOCK_DGRAM, 0);
+
+  /* バインド */
+  status = -1;
+  if (recvSocket) {
+      status = bind(recvSocket, (const struct sockaddr *) &recvSockAddr, sizeof(recvSockAddr));
+  }
+
+  /* ソケット生成 */
+  destSocket = socket(AF_INET, SOCK_DGRAM, 0);
+
+  printf("Bind:<status=%d> recvSocket=%d destSocket=%d\n",status,recvSocket,destSocket);
+
+  return(status);
+}
+
+/*********************************************************************
+ * NAME         : u_term_sock
+ * FUNCTION     : UDP Socket 終結
+ * PROCESS      : UDP Socket を終結する。
+ ********************************************************************/
+void u_term_sock()
+{
+    if (destSocket) {
+        closesocket(destSocket);
+        destSocket = 0;
     }
-
-//     if (nb_input_files == 0) {
-//         av_log(NULL, AV_LOG_FATAL, "At least one input file must be specified\n");
-//         exit_program(1);
-//     }
-
-    for (i = 0; i < nb_output_files; i++) {
-        if (strcmp(output_files[i]->ctx->oformat->name, "rtp"))
-            want_sdp = 0;
+    if (recvSocket) {
+        closesocket(recvSocket);
+        recvSocket = 0;
     }
+    WSACleanup();
+}
 
-    current_time = ti = getutime();
-    if (transcode() < 0)
-        exit_program(1);
-    ti = getutime() - ti;
-    if (do_benchmark) {
-        av_log(NULL, AV_LOG_INFO, "bench: utime=%0.3fs\n", ti / 1000000.0);
-    }
-    av_log(NULL, AV_LOG_DEBUG, "%"PRIu64" frames successfully decoded, %"PRIu64" decoding errors\n",
-           decode_error_stat[0], decode_error_stat[1]);
-    if ((decode_error_stat[0] + decode_error_stat[1]) * max_error_rate < decode_error_stat[1])
-        exit_program(69);
+void u_exit_program(int ret)
+{
 
-    exit_program(received_nb_signals ? 255 : main_return_code);
-    return main_return_code;
+    u_init_sock();
+    u_send_udp("127.0.0.1","ER");           //OK 送信
+    u_term_sock();
+
+    if (program_exit)
+        program_exit(ret);
+
+    exit(ret);
 }
