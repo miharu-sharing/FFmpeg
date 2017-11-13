@@ -2983,6 +2983,15 @@ static int parse_adts_frame_header(AACContext *ac, GetBitContext *gb)
              * WITHOUT specifying PCE.
              *  thus, set dual mono as default.
              */
+
+            /**
+             * Changed by Miharu
+             *
+             * to decode very short dual mono video
+             */
+            ac->dmono_mode = 1;
+            ac->oc[0].status = OC_NONE;
+
             if (ac->dmono_mode && ac->oc[0].status == OC_NONE) {
                 layout_map_tags = 2;
                 layout_map[0][0] = layout_map[1][0] = TYPE_SCE;
