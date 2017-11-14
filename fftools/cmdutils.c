@@ -760,6 +760,7 @@ int split_commandline(OptionParseContext *octx, int argc, char *argv[],
     int dashdash = -2;
 
     /* perform system-dependent conversions for arguments list */
+    // TODO : Unicode 対応は必要？
     // prepare_app_arguments(&argc, &argv);
 
     init_parse_context(octx, groups, nb_groups);
