@@ -4782,6 +4782,11 @@ void u_term_sock();         //UDP終結
 
 int main(int argc, char **argv)
 {
+    int i;
+
+    int _argc;
+    char **_argv;
+
     int ret;
     int64_t ti;
 
@@ -4789,105 +4794,113 @@ int main(int argc, char **argv)
 
     // Winsock 開始
     u_init_sock();
-    u_send_udp("127.0.0.1","IN");       //INIT
+    u_send_udp("127.0.0.1", "IN");       //INIT
 
 LOOP:
-  printf("Main:recv\n");
-  ret = u_recv_udp(G_cmdline);                             // UDP受信
-  printf("Recv:<ret=%d %s>\n",ret,G_cmdline);
-  if (ret < 1) {
-    goto LOOP;
+    printf("Main:recv\n");
+    ret = u_recv_udp(G_cmdline);                             // UDP受信
+    printf("Recv:<ret=%d %s>\n", ret, G_cmdline);
+    if (ret < 1) {
+        goto LOOP;
     }
     u_term_sock();
-  if (!memcmp(G_cmdline,"EXIT",4)) {
-    goto EXIT;
-  }
-  u_parse_cmdline(G_cmdline,&G_argc,&G_argv);
-  printf("(100)main:nb_filtergraphs=%d\n",nb_filtergraphs);
+    if (!memcmp(G_cmdline,"EXIT", 4)) {
+        goto EXIT;
+    }
+    u_parse_cmdline(G_cmdline, &G_argc, &G_argv);
+    printf("G_argc == %d\n", G_argc);
+    for (i = 0; i < G_argc; i++) {
+        printf("G_argv[%d] : %s\n", i, G_argv[i]);
+    }
 
-  register_exit(ffmpeg_cleanup);
+    _argc = G_argc;
+    _argv = G_argv;
 
-  setvbuf(stderr,NULL,_IONBF,0); /* win32 runtime needs this */
+    printf("(100)main:nb_filtergraphs=%d\n", nb_filtergraphs);
 
-  av_log_set_flags(AV_LOG_SKIP_REPEATED);
-  parse_loglevel(argc, argv, options);
-  printf("(200)main:nb_filtergraphs=%d\n",nb_filtergraphs);
+    register_exit(ffmpeg_cleanup);
 
-  if(argc>1 && !strcmp(argv[1], "-d")){
-      run_as_daemon=1;
-      av_log_set_callback(log_callback_null);
-      argc--;
-      argv++;
-  }
+    setvbuf(stderr, NULL, _IONBF, 0); /* win32 runtime needs this */
 
-  avcodec_register_all();
+    av_log_set_flags(AV_LOG_SKIP_REPEATED);
+    parse_loglevel(_argc, _argv, options);
+    printf("(200)main:nb_filtergraphs=%d\n", nb_filtergraphs);
+
+    if(_argc > 1 && !strcmp(_argv[1], "-d")){
+        run_as_daemon=1;
+        av_log_set_callback(log_callback_null);
+        _argc--;
+        _argv++;
+    }
+
+    avcodec_register_all();
 #if CONFIG_AVDEVICE
-  avdevice_register_all();
+    avdevice_register_all();
 #endif
-  avfilter_register_all();
-  av_register_all();
-  avformat_network_init();
+    avfilter_register_all();
+    av_register_all();
+    avformat_network_init();
 
-  show_banner(argc, argv, options);
-  printf("(300)main:nb_filtergraphs=%d\n",nb_filtergraphs);
+    show_banner(_argc, _argv, options);
+    printf("(300)main:nb_filtergraphs=%d\n", nb_filtergraphs);
 
-  u_var_init();       //変数初期化
+    u_var_init();       //変数初期化
 
-  term_init();        //変数終結
+    term_init();        //変数終結
 
-  /* parse options and open all input/output files */
-  ret = ffmpeg_parse_options(argc, argv);
-  printf("(310)main:ret=%d in=%d out=%d\n",ret,nb_input_files,nb_output_files);
-  if (ret < 0)
-      exit_program(1);
+    /* parse options and open all input/output files */
+    ret = ffmpeg_parse_options(_argc, _argv);
+    printf("(310)main:ret=%d in=%d out=%d\n", ret, nb_input_files, nb_output_files);
+    if (ret < 0)
+        exit_program(1);
 
-  if (nb_output_files <= 0 && nb_input_files == 0) {
-      show_usage();
-      av_log(NULL, AV_LOG_WARNING, "Use -h to get full help or, even better, run 'man %s'\n", program_name);
-      exit_program(1);
-  }
+    if (nb_output_files <= 0 && nb_input_files == 0) {
+        show_usage();
+        av_log(NULL, AV_LOG_WARNING, "Use -h to get full help or, even better, run 'man %s'\n", program_name);
+        exit_program(1);
+    }
 
-  /* file converter / grab */
-  if (nb_output_files <= 0) {
-      av_log(NULL, AV_LOG_FATAL, "At least one output file must be specified\n");
-      exit_program(1);
-  }
+    /* file converter / grab */
+    if (nb_output_files <= 0) {
+        av_log(NULL, AV_LOG_FATAL, "At least one output file must be specified\n");
+        exit_program(1);
+    }
 
 #if 0
-   if (nb_input_files == 0) {
-       av_log(NULL, AV_LOG_FATAL, "At least one input file must be specified\n");
-       exit_program(1);
-   }
+    if (nb_input_files == 0) {
+        av_log(NULL, AV_LOG_FATAL, "At least one input file must be specified\n");
+        exit_program(1);
+    }
 #endif
-  printf("(400)main:nb_filtergraphs=%d\n",nb_filtergraphs);
-  current_time = ti = getutime();
-  if (transcode() < 0)
-      exit_program(1);
-  ti = getutime() - ti;
-  if (do_benchmark) {
-      printf("bench: utime=%0.3fs\n", ti / 1000000.0);
-  }
-  printf("(500)main:nb_filtergraphs=%d\n",nb_filtergraphs);
-  av_log(NULL, AV_LOG_DEBUG, "%"PRIu64" frames successfully decoded, %"PRIu64" decoding errors\n",
-         decode_error_stat[0], decode_error_stat[1]);
-  if ((decode_error_stat[0] + decode_error_stat[1]) * max_error_rate < decode_error_stat[1])
-      exit_program(69);
-  printf("-exit\n");
-//    exit_program(received_nb_signals ? 255 : main_return_code);   //UCL
-  ffmpeg_cleanup(0);
-  printf("+exit\n");
-//exit(0);              //UCL
-  printf("(600)main:nb_filtergraphs=%d\n",nb_filtergraphs);
+    printf("(400)main:nb_filtergraphs=%d\n",nb_filtergraphs);
+    current_time = ti = getutime();
+    if (transcode() < 0)
+        exit_program(1);
+    ti = getutime() - ti;
+    if (do_benchmark) {
+        printf("bench: utime=%0.3fs\n", ti / 1000000.0);
+    }
+    printf("(500)main:nb_filtergraphs=%d\n",nb_filtergraphs);
+    av_log(NULL, AV_LOG_DEBUG, "%"PRIu64" frames successfully decoded, %"PRIu64" decoding errors\n",
+        decode_error_stat[0], decode_error_stat[1]);
+    if ((decode_error_stat[0] + decode_error_stat[1]) * max_error_rate < decode_error_stat[1])
+        exit_program(69);
+    printf("-exit\n");
+    // exit_program(received_nb_signals ? 255 : main_return_code);   //UCL
+    ffmpeg_cleanup(0);
+    printf("+exit\n");
+    // exit(0);              //UCL
+    printf("(600)main:nb_filtergraphs=%d\n",nb_filtergraphs);
 
-  u_init_sock();
-  u_send_udp("127.0.0.1","OK");           //OK 送信
+    u_init_sock();
+    u_send_udp("127.0.0.1","OK");           //OK 送信
 
-  goto LOOP;
+    goto LOOP;
 
 EXIT:
-  // Winsock 終了
-  u_term_sock();
-  return main_return_code;
+    // Winsock 終了
+    u_term_sock();
+    return main_return_code;
 }
 
 
@@ -4950,7 +4963,7 @@ int u_recv_udp(char *cmdline) {
  * OUTPUT       : argv                  : 変数ポインタ配列
  * RETURN       : 復帰情報              : 変数個数
  ********************************************************************/
-int u_parse_cmdline(char *cmdline,int *argc,char *argv[]) {
+int u_parse_cmdline(char *cmdline, int *argc, char *argv[]) {
 	int i,j;
 	char *p,*q;
 	int n;
