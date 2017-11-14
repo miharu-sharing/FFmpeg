@@ -4924,21 +4924,21 @@ int destSocket = 0;
  * RETURN       : 復帰情報  : 受信バイト数
  ********************************************************************/
 int u_recv_udp(char *cmdline) {
-  /* ポート番号、ソケット */
-  unsigned short port = 8421;
-//  int recvSocket;
+    /* ポート番号、ソケット */
+    unsigned short port = 8421;
+    //  int recvSocket;
     int l;
 
-  /* sockaddr_in 構造体 */
-  struct sockaddr_in recvSockAddr;
+    /* sockaddr_in 構造体 */
+    struct sockaddr_in recvSockAddr;
 
-  /* 各種パラメータ */
-  int status;
-  int numrcv;
-  char buffer[BUFFER_SIZE];
-  unsigned long on = 1;
+    /* 各種パラメータ */
+    int status;
+    int numrcv;
+    char buffer[BUFFER_SIZE];
+    unsigned long on = 1;
 
-  /* パケット受信 */
+    /* パケット受信 */
 
     numrcv = recvfrom(recvSocket, buffer, BUFFER_SIZE, 0, NULL, NULL);
     printf("recvdrom: numrcv=%d err=%d\n",numrcv,WSAGetLastError());
@@ -4949,9 +4949,9 @@ int u_recv_udp(char *cmdline) {
 
     buffer[numrcv] = '\0';
     printf("received: %s\n", buffer);
-	strcpy(cmdline,buffer);
+    strcpy(cmdline,buffer);
 
-	return(strlen(cmdline));
+    return(strlen(cmdline));
 }
 
 /*********************************************************************
@@ -4964,26 +4964,26 @@ int u_recv_udp(char *cmdline) {
  * RETURN       : 復帰情報              : 変数個数
  ********************************************************************/
 int u_parse_cmdline(char *cmdline, int *argc, char *argv[]) {
-	int i,j;
-	char *p,*q;
-	int n;
+    int i,j;
+    char *p,*q;
+    int n;
 
-	n = 0;
-	p = cmdline;
-	strcat(cmdline," ");
-	while(q = strchr(p,' ')) {
-		*q = '\0';
-		argv[n] = p;
-		n++;
-		q++;
-		while(*q == ' ') {
-			q++;
-		}
-		p = q;
-	}
-	*argc = n;
+    n = 0;
+    p = cmdline;
+    strcat(cmdline," ");
+    while(q = strchr(p,' ')) {
+        *q = '\0';
+        argv[n] = p;
+        n++;
+        q++;
+        while(*q == ' ') {
+            q++;
+        }
+        p = q;
+    }
+    *argc = n;
 
-	return(n);
+    return(n);
 }
 
 /*********************************************************************
@@ -4992,25 +4992,24 @@ int u_parse_cmdline(char *cmdline, int *argc, char *argv[]) {
  * PROCESS      : FFMPEGの内部変数を初期化する。
  ********************************************************************/
 void u_var_init() {
+    run_as_daemon  = 0;
+    nb_frames_dup = 0;
+    nb_frames_drop = 0;
 
-	run_as_daemon  = 0;
-	nb_frames_dup = 0;
-	nb_frames_drop = 0;
+    progress_avio = (void *)NULL;
 
-	progress_avio = (void *)NULL;
+    input_streams = (void *)NULL;
+    nb_input_streams = 0;
+    input_files   = (void *)NULL;
+    nb_input_files   = 0;
 
-	input_streams = (void *)NULL;
-	nb_input_streams = 0;
-	input_files   = (void *)NULL;
-	nb_input_files   = 0;
+    output_streams = (void *)NULL;
+    nb_output_streams = 0;
+    output_files   = (void *)NULL;
+    nb_output_files   = 0;
 
-	output_streams = (void *)NULL;
-	nb_output_streams = 0;
-	output_files   = (void *)NULL;
-	nb_output_files   = 0;
-
-	filtergraphs = (void *)NULL;
-	nb_filtergraphs = 0;
+    filtergraphs = (void *)NULL;
+    nb_filtergraphs = 0;
 }
 
 /*********************************************************************
@@ -5022,28 +5021,28 @@ void u_var_init() {
  * RETURN       : 復帰情報  : 送信バイト数
  ********************************************************************/
 int u_send_udp(char *destination, char *line) {
-  /* IPアドレス、ポート番号、ソケット */
-  unsigned short port = 8422;
+    /* IPアドレス、ポート番号、ソケット */
+    unsigned short port = 8422;
 
-  /* sockaddr_in 構造体 */
-  struct sockaddr_in destSockAddr;
+    /* sockaddr_in 構造体 */
+    struct sockaddr_in destSockAddr;
 
-  /* 各種パラメータ */
-  int i,ret;
+    /* 各種パラメータ */
+    int i,ret;
 
-  /* sockaddr_in 構造体のセット */
-  memset(&destSockAddr, 0, sizeof(destSockAddr));
-  destSockAddr.sin_addr.s_addr = inet_addr(destination);
-  destSockAddr.sin_port = htons(port);
-  destSockAddr.sin_family = AF_INET;
+    /* sockaddr_in 構造体のセット */
+    memset(&destSockAddr, 0, sizeof(destSockAddr));
+    destSockAddr.sin_addr.s_addr = inet_addr(destination);
+    destSockAddr.sin_port = htons(port);
+    destSockAddr.sin_family = AF_INET;
 
-  /* パケット送出 */
+    /* パケット送出 */
 
     ret = sendto(destSocket, line, strlen(line), 0,
         (const struct sockaddr *)&destSockAddr, sizeof(destSockAddr));
     printf("Send:<%s> ret=%d err=%d\n",line,ret,WSAGetLastError());
 
-	return(strlen(line));
+    return(strlen(line));
 }
 
 /*********************************************************************
@@ -5054,49 +5053,49 @@ int u_send_udp(char *destination, char *line) {
 void u_init_sock()
 {
     /* ポート番号、ソケット */
-  unsigned short port = 8421;
+    unsigned short port = 8421;
 
-  /* sockaddr_in 構造体 */
-  struct sockaddr_in recvSockAddr;
+    /* sockaddr_in 構造体 */
+    struct sockaddr_in recvSockAddr;
 
-  /* sockaddr_in 構造体 */
-  struct sockaddr_in destSockAddr;
+    /* sockaddr_in 構造体 */
+    struct sockaddr_in destSockAddr;
 
-  /* 各種パラメータ */
-  int status;
-  WSADATA data;
+    /* 各種パラメータ */
+    int status;
+    WSADATA data;
 
-  if (destSocket) {
-      closesocket(destSocket);
-  }
-  if (recvSocket) {
-      closesocket(recvSocket);
-  }
-  WSACleanup();
+    if (destSocket) {
+        closesocket(destSocket);
+    }
+    if (recvSocket) {
+        closesocket(recvSocket);
+    }
+    WSACleanup();
 
-  WSAStartup(MAKEWORD(2,0), &data);
+    WSAStartup(MAKEWORD(2,0), &data);
 
-  /* sockaddr_in 構造体のセット */
-  memset(&recvSockAddr, 0, sizeof(recvSockAddr));
-  recvSockAddr.sin_port = htons(port);
-  recvSockAddr.sin_family = AF_INET;
-  recvSockAddr.sin_addr.s_addr = htonl(INADDR_ANY);
+    /* sockaddr_in 構造体のセット */
+    memset(&recvSockAddr, 0, sizeof(recvSockAddr));
+    recvSockAddr.sin_port = htons(port);
+    recvSockAddr.sin_family = AF_INET;
+    recvSockAddr.sin_addr.s_addr = htonl(INADDR_ANY);
 
-  /* ソケット生成 */
-  recvSocket = socket(AF_INET, SOCK_DGRAM, 0);
+    /* ソケット生成 */
+    recvSocket = socket(AF_INET, SOCK_DGRAM, 0);
 
-  /* バインド */
-  status = -1;
-  if (recvSocket) {
-      status = bind(recvSocket, (const struct sockaddr *) &recvSockAddr, sizeof(recvSockAddr));
-  }
+    /* バインド */
+    status = -1;
+    if (recvSocket) {
+        status = bind(recvSocket, (const struct sockaddr *) &recvSockAddr, sizeof(recvSockAddr));
+    }
 
-  /* ソケット生成 */
-  destSocket = socket(AF_INET, SOCK_DGRAM, 0);
+    /* ソケット生成 */
+    destSocket = socket(AF_INET, SOCK_DGRAM, 0);
 
-  printf("Bind:<status=%d> recvSocket=%d destSocket=%d\n",status,recvSocket,destSocket);
+    printf("Bind:<status=%d> recvSocket=%d destSocket=%d\n",status,recvSocket,destSocket);
 
-  return(status);
+    return(status);
 }
 
 /*********************************************************************
