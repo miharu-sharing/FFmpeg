@@ -4808,10 +4808,6 @@ LOOP:
         goto EXIT;
     }
     u_parse_cmdline(G_cmdline, &G_argc, &G_argv);
-    printf("G_argc == %d\n", G_argc);
-    for (i = 0; i < G_argc; i++) {
-        printf("G_argv[%d] : %s\n", i, G_argv[i]);
-    }
 
     _argc = G_argc;
     _argv = G_argv;
@@ -4941,7 +4937,7 @@ int u_recv_udp(char *cmdline) {
     /* パケット受信 */
 
     numrcv = recvfrom(recvSocket, buffer, BUFFER_SIZE, 0, NULL, NULL);
-    printf("recvdrom: numrcv=%d err=%d\n",numrcv,WSAGetLastError());
+    printf("recvdrom: numrcv=%d err=%d\n", numrcv, WSAGetLastError());
     if(numrcv == -1) {
         u_term_sock();
         exit(-1);
